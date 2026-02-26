@@ -31,7 +31,7 @@ const LAYOUT = Array.from({ length: COUNT }, (_, i) => ({
   position: [
     (sr(i * 3)       - 0.5) * 26,   // wide X spread
     (sr(i * 3 + 1)   - 0.5) * 17,   // tall Y spread
-    (sr(i * 3 + 2)   - 0.5) * 6,    // shallow Z depth
+    (sr(i * 3 + 2)   - 0.5) * 10,   // deeper Z spread for parallax layers
   ],
   scale: 0.85 + sr(i * 7  + 100) * 2.0,   // 0.85 → 2.85
   rotZ:  (sr(i * 11 + 200) - 0.5) * 0.28, // slight random tilt
@@ -57,20 +57,18 @@ function ImagePlane({ position, url, scale, rotZ }) {
 }
 
 // ---------------------------------------------------------------------------
-// Camera slowly orbits the scene – creates the auto-drifting effect
-// without any scroll / user input needed
+// Camera slowly dollies in along Z then back out – each depth layer moves
+// at a different apparent speed, creating the "layered zoom" parallax.
 // ---------------------------------------------------------------------------
-function CameraOrbit({ radius = 14, speed = 0.055 }) {
+function CameraZoom({ near = 5, far = 18, speed = 0.22 }) {
   const { camera } = useThree()
   const t = useRef(0)
 
   useFrame((_, delta) => {
     t.current += delta * speed
-    camera.position.set(
-      Math.sin(t.current) * radius,
-      Math.sin(t.current * 0.3) * 2.5,   // gentle vertical bob
-      Math.cos(t.current) * radius,
-    )
+    // cosine starts at far, eases into near, eases back to far
+    const z = near + (far - near) * (0.5 + 0.5 * Math.cos(t.current))
+    camera.position.set(0, 0, z)
     camera.lookAt(0, 0, 0)
   })
 
@@ -90,7 +88,7 @@ function Scene() {
         <ImagePlane key={i} {...item} />
       ))}
 
-      <CameraOrbit />
+      <CameraZoom />
     </>
   )
 }
@@ -117,7 +115,7 @@ export default function WorldGrid() {
     <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
       <Canvas
         style={{ width: '100%', height: '100%', display: 'block' }}
-        camera={{ position: [0, 0, 14], fov: 68, near: 0.1, far: 200 }}
+        camera={{ position: [0, 0, 18], fov: 68, near: 0.1, far: 200 }}
         gl={{ antialias: true }}
         dpr={Math.min(window.devicePixelRatio, 2)}
       >

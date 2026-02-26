@@ -78,7 +78,7 @@ function Scene() {
       url:   SOURCES[srcIdx],
       x:     sx * rx * viewport.width  * 1.7,
       y:     sy * ry * viewport.height * 1.7,
-      scale: (1.2 + sr(i * 5 + 2) * 1.4) * viewport.height * 0.13,
+      scale: (1.2 + sr(i * 5 + 2) * 1.4) * viewport.height * 0.22,
     }
   }), [viewport.width, viewport.height])
 
@@ -135,27 +135,26 @@ function LoadingOverlay() {
   )
 }
 
-// ─── Lens-blur border ──────────────────────────────────────────────────────
-// A CSS backdrop-filter div masked to the outer ring of the viewport.
-// The mask is transparent at the centre (sharp) and opaque at the edges
-// (blurred), replicating the shallow-depth-of-field look of a real lens.
-const LENS_MASK =
-  'radial-gradient(ellipse 62% 68% at 50% 50%, transparent 45%, black 78%)'
+// ─── Vignette border ───────────────────────────────────────────────────────
+// Four fixed gradient panels — top / bottom / left / right — that fade from
+// the page background colour to transparent. They sit above everything and
+// give the impression of content softly dissolving into the viewport edge,
+// like a lens vignette, without touching or blurring page content.
+const BG = '#000000'
+const BASE = { position: 'fixed', pointerEvents: 'none', zIndex: 9999 }
 
 function LensBorder() {
   return (
-    <div
-      aria-hidden
-      style={{
-        position:             'absolute',
-        inset:                0,
-        pointerEvents:        'none',
-        backdropFilter:       'blur(18px) saturate(0.9)',
-        WebkitBackdropFilter: 'blur(18px) saturate(0.9)',
-        WebkitMaskImage:      LENS_MASK,
-        maskImage:            LENS_MASK,
-      }}
-    />
+    <>
+      <div aria-hidden style={{ ...BASE, top: 0, left: 0, right: 0, height: '22%',
+        background: `linear-gradient(to bottom, ${BG} 0%, transparent 100%)` }} />
+      <div aria-hidden style={{ ...BASE, bottom: 0, left: 0, right: 0, height: '22%',
+        background: `linear-gradient(to top,   ${BG} 0%, transparent 100%)` }} />
+      <div aria-hidden style={{ ...BASE, top: 0, bottom: 0, left: 0, width: '16%',
+        background: `linear-gradient(to right, ${BG} 0%, transparent 100%)` }} />
+      <div aria-hidden style={{ ...BASE, top: 0, bottom: 0, right: 0, width: '16%',
+        background: `linear-gradient(to left,  ${BG} 0%, transparent 100%)` }} />
+    </>
   )
 }
 
@@ -163,7 +162,7 @@ function LensBorder() {
 export default function WorldGrid() {
   const [containerRef] = useElementSize()
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
       <Canvas
         style={{ width: '100%', height: '100%', display: 'block' }}
         camera={{ position: [0, 0, CAM_Z], fov: 68, near: 0.1, far: 200 }}

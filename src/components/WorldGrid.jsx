@@ -11,13 +11,13 @@ const SOURCES = [
   '/images/group-75.png',
 ]
 
-const COUNT     = 20
+const COUNT     = 25    // 5 copies of each source
 const DEPTH     = 60
 const SPEED     = 1.5
 const CAM_Z     = 10
 const FADE_FULL = 42
 const FADE_GONE = 56
-const TILES     = COUNT / SOURCES.length   // 4 copies of each source
+const TILES     = COUNT / SOURCES.length   // 5 copies of each source
 
 function sr(seed) {
   const x = Math.sin(seed * 9301 + 49297) * 233280
@@ -78,7 +78,7 @@ function Scene() {
       url:   SOURCES[srcIdx],
       x:     sx * rx * viewport.width  * 1.7,
       y:     sy * ry * viewport.height * 1.7,
-      scale: (1.0 + sr(i * 5 + 2) * 1.4) * viewport.height * 0.1,
+      scale: (1.2 + sr(i * 5 + 2) * 1.4) * viewport.height * 0.13,
     }
   }), [viewport.width, viewport.height])
 
@@ -135,11 +135,35 @@ function LoadingOverlay() {
   )
 }
 
+// ─── Lens-blur border ──────────────────────────────────────────────────────
+// A CSS backdrop-filter div masked to the outer ring of the viewport.
+// The mask is transparent at the centre (sharp) and opaque at the edges
+// (blurred), replicating the shallow-depth-of-field look of a real lens.
+const LENS_MASK =
+  'radial-gradient(ellipse 62% 68% at 50% 50%, transparent 45%, black 78%)'
+
+function LensBorder() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position:             'absolute',
+        inset:                0,
+        pointerEvents:        'none',
+        backdropFilter:       'blur(18px) saturate(0.9)',
+        WebkitBackdropFilter: 'blur(18px) saturate(0.9)',
+        WebkitMaskImage:      LENS_MASK,
+        maskImage:            LENS_MASK,
+      }}
+    />
+  )
+}
+
 // ─── Root export ───────────────────────────────────────────────────────────
 export default function WorldGrid() {
   const [containerRef] = useElementSize()
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
         style={{ width: '100%', height: '100%', display: 'block' }}
         camera={{ position: [0, 0, CAM_Z], fov: 68, near: 0.1, far: 200 }}
@@ -150,6 +174,7 @@ export default function WorldGrid() {
           <Scene />
         </Suspense>
       </Canvas>
+      <LensBorder />
     </div>
   )
 }

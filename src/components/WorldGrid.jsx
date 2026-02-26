@@ -1,6 +1,6 @@
 import { useRef, Suspense, forwardRef, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useTexture, Html } from '@react-three/drei'
+import { useTexture } from '@react-three/drei'
 import useElementSize from '../hooks/useElementSize'
 
 const SOURCES = [
@@ -124,16 +124,6 @@ function Scene() {
   )
 }
 
-// ─── Loading overlay ───────────────────────────────────────────────────────
-function LoadingOverlay() {
-  return (
-    <Html center>
-      <p style={{ color: '#333', fontFamily: 'sans-serif', fontSize: 13, letterSpacing: '0.1em' }}>
-        Loading…
-      </p>
-    </Html>
-  )
-}
 
 // ─── Vignette border ───────────────────────────────────────────────────────
 // Four fixed gradient panels — top / bottom / left / right — that fade from
@@ -169,7 +159,7 @@ export default function WorldGrid() {
         gl={{ antialias: true }}
         dpr={Math.min(window.devicePixelRatio, 2)}
       >
-        <Suspense fallback={<LoadingOverlay />}>
+        <Suspense fallback={null}>
           <Scene />
         </Suspense>
       </Canvas>

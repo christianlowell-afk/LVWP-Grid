@@ -11,12 +11,13 @@ const SOURCES = [
   '/images/group-75.png',
 ]
 
-const COUNT     = 60
+const COUNT     = 20    // fewer images → spacious, elegant feel
 const DEPTH     = 60    // tunnel length in world units
 const SPEED     = 1.5   // units / second  –  slower, dreamier
 const CAM_Z     = 10    // fixed camera Z
 const FADE_FULL = 44    // fully opaque at this distance from camera
 const FADE_GONE = 57    // fully transparent at this distance
+const MIN_R     = 0.38  // minimum normalised radius – keeps images off-centre
 
 function sr(seed) {
   const x = Math.sin(seed * 9301 + 49297) * 233280
@@ -41,16 +42,21 @@ function Scene() {
   const { viewport } = useThree()
   const meshRefs = useRef([])
 
-  // Responsive: X/Y spread + image scale track viewport world-unit dimensions
-  const layout = useMemo(() => Array.from({ length: COUNT }, (_, i) => ({
-    url:   SOURCES[i % SOURCES.length],
-    x:     (sr(i * 3)     - 0.5) * viewport.width  * 2.0,
-    y:     (sr(i * 3 + 1) - 0.5) * viewport.height * 1.8,
-    scale: (0.85 + sr(i * 7 + 100) * 2.0) * viewport.height * 0.1,
-  })), [viewport.width, viewport.height])
+  // Responsive: polar placement guarantees every image exits through the sides,
+  // never coming straight at the viewer. Each image gets 4 independent seeds.
+  const layout = useMemo(() => Array.from({ length: COUNT }, (_, i) => {
+    const angle = sr(i * 4 + 0) * Math.PI * 2                     // 0 – 2π
+    const r     = MIN_R + sr(i * 4 + 1) * (1 - MIN_R)             // MIN_R – 1.0
+    return {
+      url:   SOURCES[i % SOURCES.length],
+      x:     Math.cos(angle) * r * viewport.width  * 1.5,
+      y:     Math.sin(angle) * r * viewport.height * 1.5,
+      scale: (1.0 + sr(i * 4 + 2) * 1.5) * viewport.height * 0.1, // tighter range
+    }
+  }), [viewport.width, viewport.height])
 
   // Z offsets initialised once; animation runs forever without reset
-  const zPos = useRef(Array.from({ length: COUNT }, (_, i) => -sr(i * 3 + 2) * DEPTH))
+  const zPos = useRef(Array.from({ length: COUNT }, (_, i) => -sr(i * 4 + 3) * DEPTH))
 
   useFrame((_, delta) => {
     for (let i = 0; i < COUNT; i++) {

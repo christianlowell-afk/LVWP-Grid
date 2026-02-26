@@ -11,20 +11,32 @@ const SOURCES = [
   '/images/group-75.png',
 ]
 
-const COUNT     = 20    // fewer images → spacious, elegant feel
-const DEPTH     = 60    // tunnel length in world units
-const SPEED     = 1.5   // units / second  –  slower, dreamier
-const CAM_Z     = 10    // fixed camera Z
-const FADE_FULL = 44    // fully opaque at this distance from camera
-const FADE_GONE = 57    // fully transparent at this distance
-const MIN_R     = 0.38  // minimum normalised radius – keeps images off-centre
+const COUNT     = 20
+const DEPTH     = 60
+const SPEED     = 1.5
+const CAM_Z     = 10
+const FADE_FULL = 42
+const FADE_GONE = 56
+const TILES     = COUNT / SOURCES.length   // 4 copies of each source
 
 function sr(seed) {
   const x = Math.sin(seed * 9301 + 49297) * 233280
   return x - Math.floor(x)
 }
 
-// forwardRef so Scene can imperatively drive position + opacity each frame
+// ─── Stable z-slots computed once at module level ──────────────────────────
+// Each source gets TILES evenly-spaced z-bands so the same face never
+// appears twice in close succession. Within each band a small jitter is
+// added so images don't arrive in lock-step.
+const BAND = DEPTH / TILES   // 15 units per band
+const Z_INITS = Array.from({ length: COUNT }, (_, i) => {
+  const srcIdx  = i % SOURCES.length
+  const tileIdx = Math.floor(i / SOURCES.length)
+  const jitter  = sr(i * 11 + 7) * BAND * 0.6   // up to 60 % of band
+  return -((tileIdx * BAND + jitter) % DEPTH)
+})
+
+// ─── ImagePlane ────────────────────────────────────────────────────────────
 const ImagePlane = forwardRef(function ImagePlane({ x, y, z, url, scale }, ref) {
   const texture = useTexture(url)
   const W = scale
@@ -32,31 +44,46 @@ const ImagePlane = forwardRef(function ImagePlane({ x, y, z, url, scale }, ref) 
   return (
     <mesh ref={ref} position={[x, y, z]}>
       <planeGeometry args={[W, H]} />
-      {/* start invisible; useFrame fades in based on distance */}
+      {/* starts invisible; useFrame drives opacity by depth */}
       <meshBasicMaterial map={texture} transparent opacity={0} />
     </mesh>
   )
 })
 
+// ─── Scene ─────────────────────────────────────────────────────────────────
 function Scene() {
   const { viewport } = useThree()
   const meshRefs = useRef([])
 
-  // Responsive: polar placement guarantees every image exits through the sides,
-  // never coming straight at the viewer. Each image gets 4 independent seeds.
+  // Viewport-responsive layout.
+  // Images are placed in one of 4 quadrants, offset far enough from centre
+  // that the middle of the screen stays clear for composited type.
+  // At FADE_FULL distance (42 u) each image is at least ~30 % of
+  // half-viewport away from the screen centre in BOTH x and y.
   const layout = useMemo(() => Array.from({ length: COUNT }, (_, i) => {
-    const angle = sr(i * 4 + 0) * Math.PI * 2                     // 0 – 2π
-    const r     = MIN_R + sr(i * 4 + 1) * (1 - MIN_R)             // MIN_R – 1.0
+    const srcIdx  = i % SOURCES.length
+    const tileIdx = Math.floor(i / SOURCES.length)
+
+    // Rotate quadrant each time a source reappears → no face is always
+    // on the same side of the screen
+    const q  = (srcIdx + tileIdx) % 4
+    const sx = (q === 0 || q === 3) ? 1 : -1   // right (+) or left (−)
+    const sy = (q === 0 || q === 1) ? 1 : -1   // up   (+) or down (−)
+
+    // rx / ry ∈ [0.42, 1.0] — the 0.42 floor is the "safe zone" guarantee
+    const rx = 0.42 + sr(i * 5 + 0) * 0.58
+    const ry = 0.42 + sr(i * 5 + 1) * 0.58
+
     return {
-      url:   SOURCES[i % SOURCES.length],
-      x:     Math.cos(angle) * r * viewport.width  * 1.5,
-      y:     Math.sin(angle) * r * viewport.height * 1.5,
-      scale: (1.0 + sr(i * 4 + 2) * 1.5) * viewport.height * 0.1, // tighter range
+      url:   SOURCES[srcIdx],
+      x:     sx * rx * viewport.width  * 1.7,
+      y:     sy * ry * viewport.height * 1.7,
+      scale: (1.0 + sr(i * 5 + 2) * 1.4) * viewport.height * 0.1,
     }
   }), [viewport.width, viewport.height])
 
-  // Z offsets initialised once; animation runs forever without reset
-  const zPos = useRef(Array.from({ length: COUNT }, (_, i) => -sr(i * 4 + 3) * DEPTH))
+  // Z animation state — initialised once from stable Z_INITS
+  const zPos = useRef([...Z_INITS])
 
   useFrame((_, delta) => {
     for (let i = 0; i < COUNT; i++) {
@@ -66,12 +93,11 @@ function Scene() {
       const mesh = meshRefs.current[i]
       if (!mesh) continue
 
-      // Responsive position update (x/y re-read from latest layout)
       mesh.position.x = layout[i].x
       mesh.position.y = layout[i].y
       mesh.position.z = zPos.current[i]
 
-      // Elegant fade-in: images materialise as they emerge from the distance
+      // Fade in as image emerges from the far end of the tunnel
       const dist = CAM_Z - mesh.position.z
       mesh.material.opacity = 1 - Math.max(0, Math.min(1,
         (dist - FADE_FULL) / (FADE_GONE - FADE_FULL)
@@ -98,6 +124,7 @@ function Scene() {
   )
 }
 
+// ─── Loading overlay ───────────────────────────────────────────────────────
 function LoadingOverlay() {
   return (
     <Html center>
@@ -108,6 +135,7 @@ function LoadingOverlay() {
   )
 }
 
+// ─── Root export ───────────────────────────────────────────────────────────
 export default function WorldGrid() {
   const [containerRef] = useElementSize()
   return (
